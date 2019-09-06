@@ -1,0 +1,14 @@
+.idea
+.vscode
+proxy/node_modules/
+tmp-docker-vol/
+
+prosper-rest-api/
+prosper-traffic/
+
+.DS_Store
+elasticsearch/*
+!elasticsearch/setup/
+!elasticsearch/local-certs/
+
+rabbitmq_data/

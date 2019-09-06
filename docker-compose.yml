@@ -1,0 +1,279 @@
+version: "3"
+
+#networks:
+#    esnet:
+#    rabbitmq:
+#        driver: bridge
+#    prosper:
+#        driver: bridge
+
+services:
+    proxy:
+        image: traefik   # the official Traefik docker image
+        container_name: traefik
+        restart: on-failure
+        command: --api --docker # enables the web UI and tells Traefik to listen to docker
+        ports:
+            - 80:80     # the HTTP port
+            - 443:443   # https Port
+            - 8081:8081 # the Web UI (enabled by --api)
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ./proxy/traefik.toml:/etc/traefik/traefik.toml
+            - ./proxy/acme.json:/acme.json
+
+#    elastic-kibana:
+#        tty: true
+#        build: elasticsearch
+#        image: prosper-elastic-kibana
+#        container_name: prosper_elastic-kibana
+#        restart: always
+#        links:
+#            - proxy:local.prosperinv.com
+#        environment:
+#            - ELASTICSEARCH_USERNAME=elastic
+#            - ELASTICSEARCH_PASSWORD=prosper-inv
+#        volumes:
+#            - ./elasticsearch/elasticsearch.yml:/etc/elasticsearch/elasticsearch.yml
+#            - ./elasticsearch/data/:/var/lib/elasticsearch/
+#            - ./elasticsearch/logs/:/usr/share/elasticsearch/logs/
+#            - ./elasticsearch/kibana.yml:/etc/kibana/kibana.yml
+#            - ./elasticsearch/kibana/data/:/var/lib/kibana/
+#            - ./elasticsearch/kibana/logs/:/var/log/kibana/
+#            - ./elasticsearch/logstash.conf:/etc/logstash/conf.d/logstash.conf
+#            - ./elasticsearch/logstash.yml:/etc/logstash/logstash.yml
+#            - ./elasticsearch/logstash/logs/:/usr/share/logstash/logs/
+#            - ./elasticsearch/filebeat.yml:/etc/filebeat/filebeat.yml
+#            - ./elasticsearch/filebeat/logs/:/var/log/filebeat/
+#            - ./elasticsearch/apm-server.yml:/etc/apm-server/apm-server.yml
+#            - ./elasticsearch/apm-server/logs/:/var/log/apm-server
+#            - ./elasticsearch/nginx.conf:/etc/nginx/sites-enabled/default
+#            - ./elasticsearch:/opt/elastic/
+#        command: bash -c "./elasticsearch-setup.sh"
+#        ports:
+#            - 9200:9200 # elasticsearch
+#            - 9600:9600 # logstash
+#            - 8200:8200 # elastic apm
+#        ulimits:
+#            memlock:
+#                soft: -1
+#                hard: -1
+#            nofile:
+#                soft: 65536
+#                hard: 65536
+#        labels:
+#            - traefik.enable=true
+#            - traefik.backend=elastic-kibana
+#            - traefik.port=90
+#            - traefik.frontend.passHostHeader=true
+#            - traefik.frontend.rule=Host:local.prosperinv.com;PathPrefix:/kibana
+
+    rest-api:
+        build: prosper-rest-api
+        image: prosper-rest-api
+        container_name: rest-api
+        volumes:
+            - ./prosper-rest-api:/usr/src/app/
+        environment:
+            - DJANGO_SETTINGS_MODULE=prosper_investments.settings.docker
+            - ENV=local
+            - LOGSTASH_HOST=logstash
+            - LOGSTASH_PORT=5959
+            - ES_URL=http://es01:9200
+            - ES_APM_URL=http://apm-server:8200
+            - DEBUG=true
+            - DB_HOST=db
+            - DB_NAME=prosper
+            - DB_USERNAME=prosper
+            - DB_PASSWORD=prosper
+            - DB_PORT=3306
+            - EMAIL_HOST_USER=yosam.db@gmail.com
+            - EMAIL_HOST_PASSWORD=ronald@507
+            - BASE_URL=http://local.prosperinv.com/api
+        links:
+            - proxy:local.prosperinv.com
+            - db
+            - es01
+        labels:
+            - traefik.enable=true
+            - traefik.port=8000
+            - traefik.api.backend=rest-api
+            - traefik.api.frontend.passHostHeader=true
+            - traefik.api.frontend.rule=Host:local.prosperinv.com;PathPrefixStrip:/api
+            - traefik.static.backend=rest-api-static
+            - traefik.static.frontend.rule=Host:local.prosperinv.com;PathPrefix:/admin,/media,/static
+        depends_on:
+            - db
+            - es01
+        command: bash -c "pip install -r requirements.txt && bash ./docker/run.sh"
+
+    db:
+        image: mysql:5.7
+        container_name: db
+        command: ["--general_log=1", "--log_output=TABLE", "--explicit_defaults_for_timestamp=1"]
+        environment:
+            - MYSQL_ROOT_PASSWORD=root
+            - MYSQL_PASSWORD=prosper
+            - MYSQL_DATABASE=prosper
+            - MYSQL_USER=prosper
+        ports:
+            - 3307:3306
+        restart: always
+        volumes:
+            - ./tmp-docker-vol/mysql:/var/lib/mysql
+        healthcheck:
+            test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-proot"]
+            interval: 30s
+            timeout: 30s
+            retries: 10
+
+    rabbitmq:
+        image: rabbitmq:3-management
+        container_name: rabbitmq
+        restart: on-failure
+        ports:
+            - 5672:5672
+            - 15672:15672
+        volumes:
+            - ./rabbitmq_data:/data
+        environment:
+            - RABBITMQ_DEFAULT_USER=prosper
+            - RABBITMQ_DEFAULT_PASS=prosper-mq
+
+    es01:
+        privileged: true
+        image: docker.elastic.co/elasticsearch/elasticsearch:7.3.1
+        container_name: es01
+        restart: always
+        environment:
+            - ELASTIC_PASSWORD=prosper
+            - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+        volumes:
+            - ./elasticsearch/es01.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+            - ./elasticsearch/local-certs:/usr/share/elasticsearch/config/certs
+            - ./elasticsearch/es01/esdata01:/usr/share/elasticsearch/data
+            - ./elasticsearch/es01/logs/:/usr/share/elasticsearch/logs
+        ports:
+            - 9200:9200
+            - 9300:9300
+
+    es02:
+        privileged: true
+        image: docker.elastic.co/elasticsearch/elasticsearch:7.3.1
+        container_name: es02
+        restart: always
+        environment:
+            - ELASTIC_PASSWORD=prosper
+            - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+        volumes:
+            - ./elasticsearch/es02.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+            - ./elasticsearch/local-certs:/usr/share/elasticsearch/config/certs
+            - ./elasticsearch/es02/esdata02:/usr/share/elasticsearch/data
+            - ./elasticsearch/es02/logs/:/usr/share/elasticsearch/logs
+
+    kibana:
+        image: docker.elastic.co/kibana/kibana:7.3.1
+        container_name: kibana
+        restart: always
+        volumes:
+            - ./elasticsearch/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+            - ./elasticsearch/local-certs:/usr/share/kibana/config/certs
+        links:
+            - proxy:local.prosperinv.com
+            - es01
+        ports:
+            - 5601:5601
+        labels:
+            - traefik.enable=true
+            - traefik.backend=kibana
+            - traefik.port=5601
+            - traefik.frontend.passHostHeader=true
+            - traefik.frontend.rule=Host:local.prosperinv.com;PathPrefix:/kibana
+
+    logstash:
+        image: docker.elastic.co/logstash/logstash:7.3.1
+        container_name: logstash
+        restart: always
+        ports:
+            - 5044:5044
+            - 5959:5959
+            - 9600:9600
+        volumes:
+            - ./elasticsearch/logstash.yml:/usr/share/logstash/logstash.yml:ro
+            - ./elasticsearch/logstash.conf:/etc/logstash/conf.d/logstash.conf:ro
+            - ./elasticsearch/local-certs:/usr/share/logstash/config/certs
+        environment:
+            LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+        links:
+            - kibana
+        command: logstash -f /etc/logstash/conf.d/logstash.conf
+
+#    filebeat:
+#        image: docker.elastic.co/beats/filebeat:7.3.1
+#        container_name: filebeat
+#        restart: always
+#        networks:
+#            - esnet
+#        volumes:
+#            - ./elasticsearch/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+#            - ./elasticsearch/local-certs:/usr/share/filebeat/config/certs
+#            - ./elasticsearch/filebeat/logs/:/usr/share/filebeat/logs
+#        links:
+#            - logstash
+
+    apm-server:
+        image: docker.elastic.co/apm/apm-server:7.3.1
+        container_name: apm-server
+        restart: always
+        ports:
+            - 8200:8200
+        volumes:
+            - ./elasticsearch/apm-server.yml:/usr/share/apm-server/apm-server.yml:ro
+            - ./elasticsearch/local-certs:/usr/share/apm-server/config/certs
+            - ./elasticsearch/apm-server/logs:/usr/share/apm-server/logs
+        environment:
+            LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+
+    es1:
+        tty: true
+        build: elasticsearch/setup/es
+        image: prosper-es1
+        container_name: es1
+        restart: always
+        links:
+            - proxy:local.prosperinv.com
+        environment:
+            - ELASTIC_PASSWORD=prosper
+            - ELASTIC_NODE_NAME=es1
+            - ELASTIC_NODE_MASTER=true
+            - ELASTIC_MASTER_NODES=es1
+            - ELASTIC_UNICAST_HOSTS=(es1)
+            - ELASTIC_HOST=0.0.0.0
+        volumes:
+            - ./elasticsearch/setup/es/elasticsearch.yml:/etc/elasticsearch/elasticsearch.yml
+            - ./elasticsearch/data/:/var/lib/elasticsearch/
+            - ./elasticsearch/logs/:/usr/share/elasticsearch/logs/
+        ports:
+            - 9200:9200
+            - 9300:9300
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+            nofile:
+                soft: 65536
+                hard: 65536
+        labels:
+            - traefik.enable=true
+            - traefik.backend=es1
+            - traefik.port=9200
+            - traefik.frontend.passHostHeader=true
+            - traefik.frontend.rule=Host:local.prosperinv.com;PathPrefix:/es

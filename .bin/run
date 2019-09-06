@@ -1,0 +1,164 @@
+#!/bin/bash
+
+gits=(prosper-rest-api prosper-traffic)
+
+txtbld=$(tput bold)
+txtrst=$(tput sgr0)
+txtlue=$(tput setaf 4)
+txtund=$(tput sgr 0 1)
+git_url=git@github.com:reiosantos/
+
+printGitProjectName() {
+      echo -e "${txtbld}${txtlue}****** $1 ******${txtrst}"
+}
+
+commandName() {
+      echo -e "${txtund}${txtbld}${txtlue}### $1${txtrst}"
+}
+
+displayHelp() {
+    echo "Usage: $0 [option...]" >&2
+    echo
+    echo "Options:"
+    echo
+    echo "   git [cmd]"
+    echo "   cmd:"
+    echo "        clone             Clone all project"
+    echo "        pull              Pull all projects"
+    echo "        fetch             Fetch for all projects"
+    echo "        status            Get status for all projects"
+    echo "        checkoutStaging   Check out all projects with Staging branch"
+    echo
+    echo "   clean [cmd]"
+    echo "   cmd:"
+    echo "        npm          Clean all node_modules folders"
+    echo
+    echo "   -h | --help       Display this help"
+    echo
+    echo
+    echo "All projects:"
+    echo "${txtbld}${gits[@]}${txtrst}"
+
+    return 1
+}
+
+gitCloneAll() {
+    commandName "Git Clone All"
+
+    for git in "${gits[@]}"
+    do
+      printGitProjectName "$git"
+      if [ ! -d "$git" ]; then
+        git clone $git_url"$git".git
+      else
+        echo "$git directory already exists (skipping)"
+      fi
+    done
+    return 0
+}
+
+gitPullAll() {
+    commandName "Git Pull All"
+
+    for git in "${gits[@]}"
+    do
+      printGitProjectName "$git"
+      git -C "$git" pull
+    done
+    return 0
+}
+
+gitFetchAll() {
+    commandName "Git Fetch All"
+
+    for git in "${gits[@]}"
+    do
+      printGitProjectName "$git"
+      git -C "$git" fetch
+    done
+    return 0
+}
+
+gitStatusAll() {
+    commandName "Git Status All"
+
+    for git in "${gits[@]}"
+    do
+      printGitProjectName "$git"
+      git -C "$git" status
+    done
+    return 0
+}
+
+gitCheckoutStagingAll() {
+    commandName "Git Checkout Staging All"
+
+    for git in "${gits[@]}"
+    do
+      printGitProjectName "$git"
+      git -C "$git" checkout staging
+    done
+    return 0
+}
+
+
+cleanNodeModules() {
+    commandName "Clean {project}/node_modules/*"
+
+    for git in "${gits[@]}"
+    do
+      printGitProjectName "$git"
+      rm -rf ./"$git"/node_modules/*
+      rm -rf ./"$git"/node_modules/.bin
+    done
+    return 0
+}
+
+
+
+case "$1" in
+      git)
+          case "$2" in
+              clone)
+                  gitCloneAll
+                  exit 0
+                  ;;
+              pull)
+                  gitPullAll
+                  exit 0
+                  ;;
+              fetch)
+                  gitFetchAll
+                  exit 0
+                  ;;
+              status | "")
+                  gitStatusAll
+                  exit 0
+                  ;;
+              checkoutStaging | "")
+                  gitCheckoutStagingAll
+                  exit 0
+                  ;;
+              *)
+                  displayHelp
+                  exit 1
+                  ;;
+          esac
+          ;;
+      clean)
+          case "$2" in
+              npm)
+                  cleanNodeModules
+                  exit 0
+                  ;;
+              *)
+              displayHelp
+              exit 1
+              ;;
+          esac
+          ;;
+      *)
+          displayHelp
+          exit 1
+          ;;
+esac
