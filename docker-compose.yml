@@ -179,24 +179,24 @@ services:
             - ./elasticsearch/es02/esdata02:/usr/share/elasticsearch/data
             - ./elasticsearch/es02/logs/:/usr/share/elasticsearch/logs
 
-    kibana:
-        image: docker.elastic.co/kibana/kibana:7.3.1
-        container_name: kibana
-        restart: always
-        volumes:
-            - ./elasticsearch/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
-            - ./elasticsearch/local-certs:/usr/share/kibana/config/certs
-        links:
-            - proxy:local.prosperinv.com
-            - es01
-        ports:
-            - 5601:5601
-        labels:
-            - traefik.enable=true
-            - traefik.backend=kibana
-            - traefik.port=5601
-            - traefik.frontend.passHostHeader=true
-            - traefik.frontend.rule=Host:local.prosperinv.com;PathPrefix:/kibana
+#    kibana:
+#        image: docker.elastic.co/kibana/kibana:7.3.1
+#        container_name: kibana
+#        restart: always
+#        volumes:
+#            - ./elasticsearch/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+#            - ./elasticsearch/local-certs:/usr/share/kibana/config/certs
+#        links:
+#            - proxy:local.prosperinv.com
+#            - es01
+#        ports:
+#            - 5601:5601
+#        labels:
+#            - traefik.enable=true
+#            - traefik.backend=kibana
+#            - traefik.port=5601
+#            - traefik.frontend.passHostHeader=true
+#            - traefik.frontend.rule=Host:local.prosperinv.com;PathPrefix:/kibana
 
     logstash:
         image: docker.elastic.co/logstash/logstash:7.3.1
@@ -258,7 +258,7 @@ services:
             - ELASTIC_UNICAST_HOSTS=[es1, es2]
             - ELASTIC_HOST=0.0.0.0
         volumes:
-            - ./elasticsearch/es1/data/:/var/lib/elasticsearch/
+            - ./elasticsearch/es1/data/:/usr/share/elasticsearch/data/
             - ./elasticsearch/es1/logs/ :/usr/share/elasticsearch/logs/
         ports:
             - 9200:9200
@@ -290,8 +290,10 @@ services:
             - ELASTIC_MASTER_NODES=[es1]
             - ELASTIC_UNICAST_HOSTS=[es1, es2]
             - ELASTIC_HOST=0.0.0.0
+        depends_on:
+            - es1
         volumes:
-            - ./elasticsearch/es2/data/:/var/lib/elasticsearch/
+            - ./elasticsearch/es2/data/:/usr/share/elasticsearch/data/
             - ./elasticsearch/es2/logs/:/usr/share/elasticsearch/logs/
         ulimits:
             memlock:
@@ -301,5 +303,27 @@ services:
                 soft: 65536
                 hard: 65536
         command: bash -c "./setup.sh"
-        depends_on:
-            - es1
+
+    kibana:
+        tty: true
+        build: elasticsearch/setup/kibana
+        image: kibana
+        container_name: kibana
+        restart: on-failure
+        environment:
+            - ELASTIC_PASSWORD=prosper
+        volumes:
+            - ./elasticsearch/setup/kibana/kibana.yml:/etc/kibana/kibana.yml
+            - ./elasticsearch/kibana/data/:/var/lib/kibana/
+            - ./elasticsearch/kibana/logs/:/var/log/kibana/
+        links:
+            - proxy:local.prosperinv.com
+        ports:
+            - 5601:5601
+        command: bash -c "./setup.sh"
+        labels:
+            - traefik.enable=true
+            - traefik.backend=kibana
+            - traefik.port=5601
+            - traefik.frontend.passHostHeader=true
+            - traefik.frontend.rule=Host:local.prosperinv.com;PathPrefix:/kibana
