@@ -245,22 +245,21 @@ services:
     es1:
         tty: true
         build: elasticsearch/setup/es
-        image: prosper-es1
+        image: es1
         container_name: es1
-        restart: always
+        restart: on-failure
         links:
             - proxy:local.prosperinv.com
         environment:
             - ELASTIC_PASSWORD=prosper
             - ELASTIC_NODE_NAME=es1
             - ELASTIC_NODE_MASTER=true
-            - ELASTIC_MASTER_NODES=es1
-            - ELASTIC_UNICAST_HOSTS=(es1)
+            - ELASTIC_MASTER_NODES=[es1]
+            - ELASTIC_UNICAST_HOSTS=[es1, es2]
             - ELASTIC_HOST=0.0.0.0
         volumes:
-            - ./elasticsearch/setup/es/elasticsearch.yml:/etc/elasticsearch/elasticsearch.yml
-            - ./elasticsearch/data/:/var/lib/elasticsearch/
-            - ./elasticsearch/logs/:/usr/share/elasticsearch/logs/
+            - ./elasticsearch/es1/data/:/var/lib/elasticsearch/
+            - ./elasticsearch/es1/logs/ :/usr/share/elasticsearch/logs/
         ports:
             - 9200:9200
             - 9300:9300
@@ -276,4 +275,31 @@ services:
             - traefik.backend=es1
             - traefik.port=9200
             - traefik.frontend.passHostHeader=true
-            - traefik.frontend.rule=Host:local.prosperinv.com;PathPrefix:/es
+            - traefik.frontend.rule=Host:local.prosperinv.com;PathPrefixStrip:/es
+        command: bash -c "./setup.sh"
+
+    es2:
+        tty: true
+        build: elasticsearch/setup/es
+        image: es2
+        container_name: es2
+        restart: on-failure
+        environment:
+            - ELASTIC_PASSWORD=prosper
+            - ELASTIC_NODE_NAME=es2
+            - ELASTIC_MASTER_NODES=[es1]
+            - ELASTIC_UNICAST_HOSTS=[es1, es2]
+            - ELASTIC_HOST=0.0.0.0
+        volumes:
+            - ./elasticsearch/es2/data/:/var/lib/elasticsearch/
+            - ./elasticsearch/es2/logs/:/usr/share/elasticsearch/logs/
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+            nofile:
+                soft: 65536
+                hard: 65536
+        command: bash -c "./setup.sh"
+        depends_on:
+            - es1

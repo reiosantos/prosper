@@ -16,14 +16,20 @@ RUN update-rc.d elasticsearch defaults 95 10
 
 RUN chown -R elasticsearch /usr/share/elasticsearch/*
 
-ADD ./elasticsearch.yml /etc/elasticsearch/elasticsearch.yml
-
 RUN mkdir -p /opt/elastic
+
+RUN apt-get install sudo -y
+
+RUN usermod -aG sudo elasticsearch
+
+RUN echo "elasticsearch:prosper" | chpasswd
 
 WORKDIR /opt/elastic/
 COPY . /opt/elastic/
 
 RUN chmod -R 755 /opt/elastic/*
+
+ENV HOME=/usr/share/elasticsearch
 
 EXPOSE 9200 9300
 

@@ -1,11 +1,11 @@
 cluster.name: docker-cluster
-cluster.initial_master_nodes: elasticsearch
+cluster.initial_master_nodes: 'initial.master.nodes'
 cluster.routing.allocation.disk.threshold_enabled: true
 cluster.info.update.interval: 5m
 
-node.master: true
+node.master: 'node.master'
 node.data: true
-node.name: elasticsearch
+node.name: 'node.name'
 
 bootstrap.memory_lock: true
 
@@ -14,11 +14,12 @@ http.cors.allow-origin: "*"
 http.cors.allow-methods : OPTIONS, HEAD, GET, POST, PUT, DELETE
 http.cors.allow-headers : X-Requested-With,X-Auth-Token,Content-Type, Content-Length
 
-discovery.seed_hosts: ["localhost"]
+discovery.zen.minimum_master_nodes: 1
+discovery.zen.ping.unicast.hosts: 'unicast.hosts'
 
 logger.level: WARN
-network.host: localhost
-transport.host: localhost
+network.host: 'network.host'
+transport.host: 'network.host'
 
 xpack.security.enabled: true
-xpack.security.transport.ssl.enabled: true
+xpack.security.transport.ssl.enabled: false
