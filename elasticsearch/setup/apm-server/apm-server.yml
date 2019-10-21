@@ -1,0 +1,38 @@
+apm-server:
+    host: 0.0.0.0:8200
+    kibana:
+        enabled: true
+        host: kibana:5601
+        protocol: http
+        username: "${elastic.username}"
+        password: "${elastic.password}"
+        ssl:
+            enabled: false
+            certificate_authorities:
+                - /etc/apm-server/certs/ca.crt
+            certificate: "/etc/apm-server/certs/apm-server.crt"
+            key: "/etc/apm-server/certs/apm-server.key"
+    run:
+        enabled: true
+        event_rate.limit: 300
+        allow_origins: ['*']
+
+output:
+    elasticsearch:
+        enabled: false
+        protocol: http
+        hosts: ["es1:9200"]
+        username: "${elastic.username}"
+        password: "${elastic.password}"
+        ssl:
+            enabled: false
+            certificate_authorities:
+                - /etc/apm-server/certs/ca.crt
+            certificate: "/etc/apm-server/certs/apm-server.crt"
+            key: "/etc/apm-server/certs/apm-server.key"
+    logstash:
+        enabled: true
+        protocol: http
+        hosts: ["logstash:5044"]
+
+logging.level: warning

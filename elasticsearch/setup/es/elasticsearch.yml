@@ -22,4 +22,15 @@ network.host: 'network.host'
 transport.host: 'network.host'
 
 xpack.security.enabled: true
-xpack.security.transport.ssl.enabled: false
+xpack.security.transport.ssl.enabled: true
+xpack.security.transport.ssl.verification_mode: certificate
+xpack.security.transport.ssl.key: /etc/elasticsearch/certs/'node.name'.key
+xpack.security.transport.ssl.certificate: /etc/elasticsearch/certs/'node.name'.crt
+xpack.security.transport.ssl.certificate_authorities: ["/etc/elasticsearch/certs/ca.crt"]
+
+xpack.security.http.ssl.enabled: false
+xpack.security.http.ssl.key: /etc/elasticsearch/certs/'node.name'.key
+xpack.security.http.ssl.certificate: /etc/elasticsearch/certs/'node.name'.crt
+xpack.security.http.ssl.certificate_authorities: /etc/elasticsearch/certs/ca.crt
+
+logger.org.elasticsearch.transport: warn

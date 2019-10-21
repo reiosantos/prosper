@@ -21,27 +21,27 @@ RUN cd $HOME
 RUN wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add - && \
 echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" | tee -a /etc/apt/sources.list.d/elastic-7.x.list
 
-RUN apt-get update  -y && apt-get -y install unzip procps curl nano lsof sudo kibana
+RUN apt-get update  -y && apt-get -y install unzip procps curl nano lsof sudo apm-server
 
-RUN update-rc.d kibana defaults 95 10
+RUN update-rc.d apm-server defaults 95 10
 
-RUN chown -R kibana /usr/share/kibana/*
+RUN chown -R root:apm-server /usr/share/apm-server/*
 
-COPY kibana.yml /etc/kibana/kibana.yml
+COPY apm-server.yml /etc/apm-server/apm-server.yml
 
-RUN mkdir -p /opt/kibana
+RUN mkdir -p /opt/apm-server
 
-RUN usermod -aG sudo kibana
+RUN usermod -aG sudo apm-server
 
-RUN echo "kibana:prosper" | chpasswd
+RUN echo "apm-server:prosper" | chpasswd
 
-WORKDIR /opt/kibana/
-COPY . /opt/kibana/
+WORKDIR /opt/apm-server/
+COPY . /opt/apm-server/
 
-RUN chmod -R 755 /opt/kibana/*
+RUN chmod -R 755 /opt/apm-server/*
 
-ENV HOME=/usr/share/kibana
+ENV HOME=/usr/share/apm-server
 
-EXPOSE 5601
+EXPOSE 8200
 
 CMD ["./setup.sh"]

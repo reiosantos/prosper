@@ -9,6 +9,7 @@ prosper-traffic/
 .DS_Store
 elasticsearch/*
 !elasticsearch/setup/
-!elasticsearch/local-certs/
-
+elasticsearch/**/elasticsearch-*
+elasticsearch/**/kibana-*
+elasticsearch/**/logstash-*
 rabbitmq_data/

@@ -1,0 +1,11 @@
+instances:
+    - name: es1
+      dns: "es1"
+    - name: es2
+      dns: "es2"
+    - name: kibana
+      dns: "kibana"
+    - name: logstash
+      dns: "logstash"
+    - name: apm-server
+      dns: "apm-server"

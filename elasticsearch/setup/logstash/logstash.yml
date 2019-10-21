@@ -1,0 +1,10 @@
+node.name: lg-es1
+config.reload.automatic: true
+log.level: warn
+
+xpack.monitoring.enabled: true
+xpack.monitoring.elasticsearch.username: ${ELASTIC_USERNAME}
+xpack.monitoring.elasticsearch.password: ${ELASTIC_PASSWORD}
+
+xpack.management.elasticsearch.username: ${ELASTIC_USERNAME}
+xpack.management.elasticsearch.password: ${ELASTIC_PASSWORD}

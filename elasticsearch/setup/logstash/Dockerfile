@@ -21,27 +21,28 @@ RUN cd $HOME
 RUN wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add - && \
 echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" | tee -a /etc/apt/sources.list.d/elastic-7.x.list
 
-RUN apt-get update  -y && apt-get -y install unzip procps curl nano lsof sudo kibana
+RUN apt-get update  -y && apt-get -y install unzip procps curl nano lsof sudo logstash
 
-RUN update-rc.d kibana defaults 95 10
+RUN update-rc.d logstash defaults 95 10
 
-RUN chown -R kibana /usr/share/kibana/*
+RUN chown -R logstash /usr/share/logstash/*
 
-COPY kibana.yml /etc/kibana/kibana.yml
+COPY logstash.yml /etc/logstash/logstash.yml
+COPY logstash.conf /etc/logstash/conf.d/logstash.conf
 
-RUN mkdir -p /opt/kibana
+RUN mkdir -p /opt/logstash
 
-RUN usermod -aG sudo kibana
+RUN usermod -aG sudo logstash
 
-RUN echo "kibana:prosper" | chpasswd
+RUN echo "logstash:prosper" | chpasswd
 
-WORKDIR /opt/kibana/
-COPY . /opt/kibana/
+WORKDIR /opt/logstash/
+COPY . /opt/logstash/
 
-RUN chmod -R 755 /opt/kibana/*
+RUN chmod -R 755 /opt/logstash/*
 
-ENV HOME=/usr/share/kibana
+ENV HOME=/usr/share/logstash
 
-EXPOSE 5601
+EXPOSE 9600 5044 5959
 
 CMD ["./setup.sh"]
