@@ -2,7 +2,7 @@ version: "3"
 
 services:
     proxy:
-        image: traefik   # the official Traefik docker image
+        image: traefik:alpine   # the official Traefik docker image
         container_name: traefik
         restart: on-failure
         command: --api --docker # enables the web UI and tells Traefik to listen to docker
@@ -13,20 +13,40 @@ services:
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - ./proxy/traefik.toml:/etc/traefik/traefik.toml
-            - ./proxy/acme.json:/acme.json
+#            - ./proxy/acme.json:/acme.json
 
-    rest-api:
+#    haproxy:
+#        image: haproxy:latest
+#        container_name: haproxy
+#        restart: always
+#        ports:
+#            - 80:80
+#            - 443:443
+#            - 8080:8080
+#        depends_on:
+#            - rest-api
+#            - es1
+#            - kibana
+#            - rabbitmq
+#        volumes:
+#            - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+
+    rest-api: &rest-api-def
         build: prosper-rest-api
         image: prosper-rest-api
         container_name: rest-api
+        ports:
+            - 8000:8000
         volumes:
             - ./prosper-rest-api:/usr/src/app/
-        environment:
+        environment: &rest-api-env-def
             - DJANGO_SETTINGS_MODULE=prosper_investments.settings.docker
             - ENV=local
             - LOGSTASH_HOST=logstash
             - LOGSTASH_PORT=5959
-            - ES_URL=http://es1:9200
+            - ES_HOST=es1:9200
+            - ES_USER=elastic
+            - ES_PASSWORD=prosper
             - ES_APM_URL=http://apm-server:8200
             - DEBUG=true
             - DB_HOST=db
@@ -37,11 +57,22 @@ services:
             - EMAIL_HOST_USER=yosam.db@gmail.com
             - EMAIL_HOST_PASSWORD=ronald@507
             - BASE_URL=http://local.prosperinv.com/api
+            - RABBITMQ_DEFAULT_USER=prosper
+            - RABBITMQ_DEFAULT_PASS=prosper-mq
+            - RABBITMQ_HOST=rabbitmq
         links:
             - proxy:local.prosperinv.com
             - db
             - es1
             - rabbitmq
+        depends_on:
+            - proxy
+            - db
+            - es1
+            - apm-server
+            - rabbitmq
+            - rest-api-celery-worker
+        command: bash -c "pip install -r requirements.txt && bash ./docker/run.sh"
         labels:
             - traefik.enable=true
             - traefik.port=8000
@@ -49,13 +80,18 @@ services:
             - traefik.api.frontend.passHostHeader=true
             - traefik.api.frontend.rule=Host:local.prosperinv.com;PathPrefixStrip:/api
             - traefik.static.backend=rest-api-static
-            - traefik.static.frontend.rule=Host:local.prosperinv.com;PathPrefix:/admin,/media,/static
+            - traefik.static.frontend.rule=Host:local.prosperinv.com;PathPrefix:/admin,/media,/static,/silk
+
+    rest-api-celery-worker:
+        <<: *rest-api-def
         depends_on:
-            - db
-            - es1
-            - apm-server
             - rabbitmq
-        command: bash -c "pip install -r requirements.txt && bash ./docker/run.sh"
+        container_name: rest-api-celery-worker
+        command: bash -c "pip install -r requirements.txt && celery -A prosper_investments.celery worker -E"
+        ports:
+            - '8000'
+        labels:
+            - celery=worker
 
     db:
         image: mysql:5.7
@@ -82,13 +118,13 @@ services:
         container_name: rabbitmq
         restart: on-failure
         ports:
-            - 5672:5672
             - 15672:15672
         volumes:
             - ./rabbitmq_data:/data
         environment:
             - RABBITMQ_DEFAULT_USER=prosper
             - RABBITMQ_DEFAULT_PASS=prosper-mq
+            - RABBITMQ_ENABLE_MANAGEMENT_PLUGIN=true
 
     es1:
         tty: true
@@ -96,8 +132,6 @@ services:
         image: es1
         container_name: es1
         restart: on-failure
-        links:
-            - proxy:local.prosperinv.com
         environment:
             - ELASTIC_PASSWORD=prosper
             - ELASTIC_NODE_NAME=es1
@@ -110,8 +144,6 @@ services:
             - ./elasticsearch/es1/logs/:/usr/share/elasticsearch/logs/
             - ./elasticsearch/setup/es/:/opt/elastic
             - ./elasticsearch/setup/cert_blog/:/opt/cert_blog/
-        ports:
-            - 9201:9200
         ulimits:
             memlock:
                 soft: -1
@@ -119,12 +151,6 @@ services:
             nofile:
                 soft: 65536
                 hard: 65536
-        labels:
-            - traefik.enable=true
-            - traefik.backend=es1
-            - traefik.port=9200
-            - traefik.frontend.passHostHeader=true
-            - traefik.frontend.rule=Host:local.prosperinv.com;PathPrefixStrip:/es
         command: bash -c "./setup.sh"
 
 #    es2:
@@ -173,6 +199,7 @@ services:
             - proxy:local.prosperinv.com
             - es1
         depends_on:
+            - proxy
             - es1
         ports:
             - 5601:5601
@@ -191,15 +218,12 @@ services:
         container_name: apm-server
         restart: on-failure
         links:
-            - proxy:local.prosperinv.com
             - kibana
             - es1
         depends_on:
             - es1
             - logstash
             - kibana
-        ports:
-            - 8200:8200
         volumes:
             - ./elasticsearch/apm-server/data/:/var/lib/apm-server/
             - ./elasticsearch/apm-server/logs/:/var/log/apm-server/
